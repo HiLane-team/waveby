@@ -1,0 +1,4 @@
+<resources>
+    <!-- 개발용 빌드 표시 이름. 제출용(release)은 main의 "Waveby"를 쓴다. -->
+    <string name="app_name">Waveby (개발)</string>
+</resources>

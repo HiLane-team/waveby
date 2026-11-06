@@ -1,0 +1,30 @@
+# Gradle / Android Studio
+.gradle/
+build/
+/app/build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Pleos Playground 비밀 값 (절대 커밋 금지)
+pleos-secrets.properties
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# 서명 키·비밀값(절대 커밋 금지)
+*.jks
+*.keystore
+keystore.properties
+*.p12
+*.pem
+.env
+*.env
+
+# 개인 작업 폴더
+.claude/
+.superpowers/
