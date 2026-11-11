@@ -11,7 +11,7 @@ const val MAX_BRIEFING_LENGTH = 80
 /** 친구가 1명 이상이면 도착 요약, 새 지역이 있으면 지역 획득 문구. 줄바꿈으로 잇는다. */
 fun arrivalMessage(summary: ArrivalSummary): String = buildList {
     if (summary.friends.isNotEmpty()) add("이번 드라이브에서 ${summary.friends.size}명이 놀러왔어요")
-    summary.newRegion?.let { add("${it.mascotName}을(를) 얻었어요!") }
+    summary.newRegion?.let { add("${withObjectParticle(it.mascotName)} 얻었어요!") }
 }.joinToString("\n")
 
 /** 글레오를 쓸 수 없을 때 읽는 문장: 도착 요약 + 대표 친구 인사말. */
@@ -32,4 +32,11 @@ object BriefingPrompt {
         summary.friends.take(3).forEach { appendLine("- 친구 ${it.nickname}의 인사: ${it.greeting}") }
         summary.newRegion?.let { appendLine("- 새로 얻은 지역 캐릭터: ${it.mascotName}") }
     }.trimEnd()
+}
+
+/** 목적격 조사를 붙인다: 마지막 글자에 받침이 있으면 "을", 없으면(한글이 아니어도) "를". */
+fun withObjectParticle(word: String): String {
+    val last = word.lastOrNull() ?: return word
+    val hasFinal = last in '가'..'힣' && (last - '가') % 28 != 0
+    return word + if (hasFinal) "을" else "를"
 }

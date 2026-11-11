@@ -28,6 +28,8 @@
             android:name=".MainActivity"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
+            <!-- 주행 중에도 시스템 차단 화면 대신 우리 잠금 화면(DriveLockOverlay: 조작 없음)을 보여 준다. -->
+            <meta-data android:name="distractionOptimized" android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

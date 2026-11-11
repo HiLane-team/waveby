@@ -1,5 +1,6 @@
 package com.drivepark.app.data
 
+import com.drivepark.app.domain.CharacterKind
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.drivepark.app.domain.Accessory
@@ -91,9 +92,46 @@ class RoomParkRepositoryTest {
     }
 
     @Test
+    fun saveAndLoad_kindShapeLook() = runTest {
+        val person = c("나").copy(shape = "person", look = com.drivepark.app.domain.PersonLook(
+            com.drivepark.app.domain.SkinTone.DEEP, com.drivepark.app.domain.HairColor.BLOND, com.drivepark.app.domain.BottomColor.DENIM,
+        ))
+        repo.saveMyCharacter(person)
+        assertEquals(person, repo.getMyCharacter())
+        val pet = c("콩이").copy(kind = CharacterKind.PET, shape = "wolf")
+        repo.addPending(listOf(pet))
+        assertEquals(listOf(pet), repo.deliverPending())
+        assertEquals(pet, repo.observeFriends().first().single().character)
+    }
+
+    @Test
     fun collectRegion_onlyFirstTimeTrue() = runTest {
         assertTrue(repo.collectRegion("jeju"))
         assertFalse(repo.collectRegion("jeju"))
         assertEquals(setOf("jeju"), repo.observeCollectedRegionIds().first())
+    }
+
+    @Test
+    fun drawing_roundTripsForMeAndFriends() = runTest {
+        val art = List(23) { y -> if (y == 22) "KK..............." else ".".repeat(17) }.joinToString("\n")
+        val drawn = c("그림나").copy(shape = "drawn", drawing = art)
+        repo.saveMyCharacter(drawn)
+        assertEquals(drawn, repo.getMyCharacter())
+        repo.addPending(listOf(c("친구").copy(drawing = art)))
+        repo.deliverPending()
+        assertEquals(art, repo.observeFriends().first().single().character.drawing)
+    }
+
+    @Test
+    fun sticker_roundTripsAndClears() = runTest {
+        repo.addPending(listOf(c("a"), c("b")))
+        repo.deliverPending()
+        val a = repo.observeFriends().first().first { it.character.nickname == "a" }
+        repo.setSticker(a.id, com.drivepark.app.domain.Sticker.THUMBS)
+        val after = repo.observeFriends().first()
+        assertEquals(com.drivepark.app.domain.Sticker.THUMBS, after.first { it.id == a.id }.sticker)
+        assertNull(after.first { it.id != a.id }.sticker)
+        repo.setSticker(a.id, null)
+        assertNull(repo.observeFriends().first().first { it.id == a.id }.sticker)
     }
 }

@@ -14,8 +14,10 @@ android {
         applicationId = "com.drivepark.app"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 13
+        versionName = "0.2.11"
+        // 실제 차량(arm64)과 Pleos 에뮬레이터(x86_64)용 네이티브 라이브러리만 넣는다(32비트·mips 제외로 용량 감소).
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     // release 서명: 저장소 밖 폴더(프로젝트 옆 waveby-signing/)의 keystore.properties에서 읽는다.
@@ -42,7 +44,10 @@ android {
             applicationIdSuffix = ".debug" // 앱 이름은 src/debug/res/values/strings.xml의 "Waveby (개발)"
         }
         release {
-            isMinifyEnabled = false
+            // 코드·리소스 축소(APK 용량). SDK 보존 규칙은 proguard-rules.pro. 바꾸면 에뮬레이터 시연 순서를 처음부터 다시 확인한다.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }

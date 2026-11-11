@@ -2,6 +2,7 @@ package com.drivepark.app.data
 
 import com.drivepark.app.domain.Character
 import com.drivepark.app.domain.Friend
+import com.drivepark.app.domain.Sticker
 import com.drivepark.app.domain.ParkRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,10 +27,13 @@ class RoomParkRepository(db: AppDatabase) : ParkRepository {
         dao.deliverPending().map { it.character.toDomain() }
 
     override fun observeFriends(): Flow<List<Friend>> = dao.observeFriends().map { list ->
-        list.map { Friend(it.id, it.character.toDomain(), it.isNew) }
+        // 모르는 스티커 이름(예전·손상 데이터)은 없는 것으로 읽는다.
+        list.map { e -> Friend(e.id, e.character.toDomain(), e.isNew, Sticker.entries.firstOrNull { it.name == e.sticker }) }
     }
 
     override suspend fun markAllSeen() = dao.markAllSeen()
+
+    override suspend fun setSticker(friendId: Long, sticker: Sticker?) = dao.setSticker(friendId, sticker?.name)
 
     override suspend fun collectRegion(regionId: String): Boolean =
         dao.insertCollectedRegion(CollectedRegionEntity(regionId)) != -1L

@@ -38,7 +38,7 @@ class DataStoreSettingsRepositoryTest {
         val file = File(tmp.root, "b.preferences_pb")
         val s1 = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         repoAt(file, s1).update {
-            it.copy(pauseVisits = true, gleoBriefing = false, themeMode = ThemeMode.DARK, startupMode = StartupMode.STAY, showParkWhenIdle = false, lastSplitPane = SplitPane.MIDDLE)
+            it.copy(pauseVisits = true, gleoBriefing = false, themeMode = ThemeMode.DARK, startupMode = StartupMode.STAY, showParkWhenIdle = false, lastSplitPane = SplitPane.MIDDLE, lastAutoNaviBoot = 1234L, keeperTutorialDone = true)
         }
         s1.cancel()
         val s2 = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -48,7 +48,9 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(ThemeMode.DARK, again.themeMode)
         assertEquals(StartupMode.STAY, again.startupMode)
         assertEquals(false, again.showParkWhenIdle)
+        assertEquals(1234L, again.lastAutoNaviBoot)
         assertEquals(SplitPane.MIDDLE, again.lastSplitPane)
+        assertTrue(again.keeperTutorialDone)
         s2.cancel()
     }
 }

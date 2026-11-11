@@ -1,5 +1,6 @@
 package com.drivepark.app.ui.welcome
 
+import com.drivepark.app.ui.character.rememberIdleFrame
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,10 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -42,8 +40,7 @@ const val WELCOME_MS = 3500L
 @Composable
 fun WelcomeScreen(me: Character, onDone: () -> Unit) {
     val text = remember(me.nickname, me.kind) { startGreeting(Calendar.getInstance().get(Calendar.HOUR_OF_DAY), me.nickname, me.kind) }
-    var frame by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) { while (true) { delay(600); frame++ } }
+    val frame = rememberIdleFrame()
     LaunchedEffect(Unit) { delay(WELCOME_MS); onDone() }
 
     Column(
@@ -59,7 +56,7 @@ fun WelcomeScreen(me: Character, onDone: () -> Unit) {
         )
         Spacer(Modifier.height(32.dp))
         CharacterGlow(Modifier.size(360.dp)) {
-            CharacterAvatar(me.parts, Modifier.size(260.dp), frame = frame)
+            CharacterAvatar(me, Modifier.size(260.dp), frame = frame)
         }
         Spacer(Modifier.height(16.dp))
         Text("${me.nickname}의 공원", color = Pleos.TextSecondary, style = MaterialTheme.typography.titleMedium)

@@ -1,5 +1,6 @@
 package com.drivepark.app
 
+import com.drivepark.app.ui.pixel.Shapes
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +13,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.drivepark.app.domain.shouldAutoOpenNavi
 import com.drivepark.app.domain.Character
 import com.drivepark.app.ui.welcome.WelcomeScreen
 import com.drivepark.app.domain.StartupMode
@@ -42,6 +44,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.drivepark.app.domain.ArrivalSummary
+import com.drivepark.app.domain.DriveGuard
 import com.drivepark.app.domain.DriveState
 import com.drivepark.app.drive.DriveWatchService
 import com.drivepark.app.ui.arrival.ArrivalDialog
@@ -155,9 +158,28 @@ private fun DriveParkNav(container: AppContainer, freshStart: Boolean) {
     var arrival by remember { mutableStateOf<ArrivalSummary?>(null) }
     LaunchedEffect(Unit) { container.driveSession.arrivals.collect { arrival = it } }
 
+    // 졸음 휴식 권유: 주행 중 쉴 때면 잠금 화면이 조는 모습, 그 뒤 주차하면 휴식 권유 화면(+인사 음성이 켜져 있으면 읽기).
+    val restDue by container.restReminder.due.collectAsState()
+    val myCharacter by container.repo.observeMyCharacter().collectAsState(initial = null)
+    var showRest by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        container.restReminder.suggestions.collect {
+            showRest = true
+            if (container.settings.current().greetingVoice) container.greeter.speak(com.drivepark.app.ui.rest.REST_MESSAGE)
+        }
+    }
+
     val scope = rememberCoroutineScope()
-    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    val activity = androidx.activity.compose.LocalActivity.current
     val nav = rememberNavController()
+    // 내비 위 안내 박스의 "공원 보기": 어느 화면에 있었든 공원으로 간다(초기 설정 중이면 그대로).
+    LaunchedEffect(Unit) {
+        container.openParkRequests.collect {
+            if (nav.currentDestination?.route != Routes.ONBOARDING) {
+                nav.navigate(RailItem.PARK.route) { popUpTo(0) { inclusive = true } }
+            }
+        }
+    }
     val parkVm: ParkViewModel = viewModel { ParkViewModel(container.repo) }
     val park by parkVm.state.collectAsState()
     val driveState by container.monitor.state.collectAsState()
@@ -166,59 +188,69 @@ private fun DriveParkNav(container: AppContainer, freshStart: Boolean) {
     val route = entry?.destination?.route
     val selected = RailItem.entries.firstOrNull { it.route == route }
 
-    AppShell(
-        showRail = route != Routes.ONBOARDING && route != null,
-        selected = selected,
-        newFriends = park.newFriends.size,
-        // 개발자 메뉴는 시연 중 "주차"를 눌러야 하므로 잠그지 않는다.
-        driving = driveState == DriveState.DRIVING && route != Routes.DEV,
-        onDemoPark = if (demoOverride != null) ({ container.monitor.setOverride(DriveState.PARKED) }) else null,
-        onSelect = { nav.goTo(it.route) },
+    // 주행 중에는 반복 애니메이션을 멈춘다(앱은 잠금 화면 뒤에 가려져 있고, CPU는 내비가 써야 한다).
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.drivepark.app.ui.theme.LocalAnimationsEnabled provides (driveState != DriveState.DRIVING),
+        com.drivepark.app.ui.theme.LocalDriving provides (driveState == DriveState.DRIVING),
     ) {
-        NavHost(
-            nav, startDestination = startRoute,
-            enterTransition = { PleosMotion.enter }, exitTransition = { PleosMotion.exit },
-            popEnterTransition = { PleosMotion.enter }, popExitTransition = { PleosMotion.exit },
+        AppShell(
+            showRail = route != Routes.ONBOARDING && route != null,
+            selected = selected,
+            newFriends = park.newFriends.size,
+            // 개발자 메뉴는 시연 중 "주차"를 눌러야 하므로 잠그지 않는다.
+            driving = driveState == DriveState.DRIVING && route != Routes.DEV,
+            onDemoPark = if (demoOverride != null) ({ container.monitor.setOverride(DriveState.PARKED) }) else null,
+            rest = restDue,
+            me = myCharacter,
+            onSelect = { nav.goTo(it.route) },
         ) {
-            composable(Routes.ONBOARDING) {
-                val vm: OnboardingViewModel = viewModel { OnboardingViewModel() }
-                val characterVm: CreateCharacterViewModel = viewModel { CreateCharacterViewModel(container.repo) }
-                OnboardingScreen(vm, characterVm, container) {
-                    nav.navigate(RailItem.PARK.route) { popUpTo(0) { inclusive = true } }
+            NavHost(
+                nav, startDestination = startRoute,
+                enterTransition = { PleosMotion.enter }, exitTransition = { PleosMotion.exit },
+                popEnterTransition = { PleosMotion.enter }, popExitTransition = { PleosMotion.exit },
+            ) {
+                composable(Routes.ONBOARDING) {
+                    val vm: OnboardingViewModel = viewModel { OnboardingViewModel() }
+                    val characterVm: CreateCharacterViewModel = viewModel { CreateCharacterViewModel(container.repo, Shapes.animalIds) }
+                    OnboardingScreen(vm, characterVm, container) {
+                        nav.navigate(RailItem.PARK.route) { popUpTo(0) { inclusive = true } }
+                    }
                 }
-            }
-            composable(Routes.CREATE) {
-                val vm: CreateCharacterViewModel = viewModel { CreateCharacterViewModel(container.repo) }
-                CreateCharacterScreen(vm) {
-                    // 설정에서 수정하러 왔으면 돌아가고, 처음 만들었으면 공원을 시작점으로
-                    if (nav.previousBackStackEntry != null) nav.popBackStack()
-                    else nav.navigate(RailItem.PARK.route) { popUpTo(0) { inclusive = true } }
+                composable(Routes.CREATE) {
+                    val vm: CreateCharacterViewModel = viewModel { CreateCharacterViewModel(container.repo, Shapes.animalIds) }
+                    CreateCharacterScreen(vm, title = "내 캐릭터 꾸미기", saveLabel = "저장", showKindRow = true) {
+                        // 설정에서 수정하러 왔으면 돌아가고, 처음 만들었으면 공원을 시작점으로
+                        if (nav.previousBackStackEntry != null) nav.popBackStack()
+                        else nav.navigate(RailItem.PARK.route) { popUpTo(0) { inclusive = true } }
+                    }
                 }
-            }
-            composable(RailItem.PARK.route) {
-                val prefs by container.settings.observe().collectAsState(initial = com.drivepark.app.domain.AppSettings())
-                ParkScreen(parkVm, paused = prefs.pauseVisits, onTogglePause = {
-                    scope.launch { container.settings.update { it.copy(pauseVisits = !it.pauseVisits) } }
-                })
-            }
-            composable(RailItem.FRIENDS.route) { FriendListScreen(parkVm) }
-            composable(RailItem.COLLECTION.route) {
-                val vm: CollectionViewModel = viewModel {
-                    CollectionViewModel(container.repo) { container.location.hasPermission() }
+                composable(RailItem.PARK.route) {
+                    val prefs by container.settings.observe().collectAsState(initial = com.drivepark.app.domain.AppSettings())
+                    ParkScreen(parkVm, paused = prefs.pauseVisits, onTogglePause = {
+                        scope.launch { container.settings.update { it.copy(pauseVisits = !it.pauseVisits) } }
+                    }, keeperTutorialDone = prefs.keeperTutorialDone, onKeeperTutorialDone = {
+                        scope.launch { container.settings.update { it.copy(keeperTutorialDone = true) } }
+                    })
                 }
-                CollectionScreen(vm)
-            }
-            composable(RailItem.SETTINGS.route) {
-                val vm: SettingsViewModel = viewModel {
-                    SettingsViewModel(
-                        container.settings, container.repo,
-                        overlayGranted = { android.provider.Settings.canDrawOverlays(container.appContext) },
-                        locationGranted = { container.location.hasPermission() },
-                    )
+                composable(RailItem.FRIENDS.route) { FriendListScreen(parkVm) }
+                composable(RailItem.COLLECTION.route) {
+                    val vm: CollectionViewModel = viewModel {
+                        CollectionViewModel(container.repo) { container.location.hasPermission() }
+                    }
+                    CollectionScreen(vm)
                 }
-                SettingsScreen(vm, onEditCharacter = { nav.navigate(Routes.CREATE) }, onOpenDev = { nav.navigate(Routes.DEV) })
+                composable(RailItem.SETTINGS.route) {
+                    val vm: SettingsViewModel = viewModel {
+                        SettingsViewModel(
+                            container.settings, container.repo,
+                            overlayGranted = { android.provider.Settings.canDrawOverlays(container.appContext) },
+                            locationGranted = { container.location.hasPermission() },
+                        )
+                    }
+                    SettingsScreen(vm, onEditCharacter = { nav.navigate(Routes.CREATE) }, onOpenDev = { nav.navigate(Routes.DEV) })
+                }
+                composable(Routes.DEV) { DevMenuScreen(container) { nav.popBackStack() } }
             }
-            composable(Routes.DEV) { DevMenuScreen(container) { nav.popBackStack() } }
         }
     }
 
@@ -235,16 +267,31 @@ private fun DriveParkNav(container: AppContainer, freshStart: Boolean) {
                 // 인사가 끝나면 설정에 따라 순정 내비를 바로 띄운다(내비 버튼을 한 번 더 누르지 않게).
                 // 3분할 중이면 내비가 이미 옆 칸에 보이고, 실행하면 칸이 맞바뀌어 기억한 자리가 흐트러지므로 건너뛴다.
                 val inSplit = (activity?.let(SplitPlacement::paneOf) ?: SplitPane.NONE) != SplitPane.NONE
+                // 시동 한 번에 한 번만: 같은 시동 안에서 앱이 다시 "새로 켜짐"이 되면(업데이트·재시작) 공원에 머문다.
                 scope.launch {
-                    if (!inSplit && container.settings.current().startupMode == StartupMode.TO_NAVI) ScreenSwitcher.openNavi(container.appContext)
+                    val bootMark = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+                    val s = container.settings.current()
+                    if (shouldAutoOpenNavi(s.startupMode, inSplit, bootMark, s.lastAutoNaviBoot)) {
+                        container.settings.update { it.copy(lastAutoNaviBoot = bootMark) }
+                        ScreenSwitcher.openNavi(container.appContext)
+                    }
                 }
             }
         }
     }
 
-    ArrivalDialog(arrival) {
+    // 휴식 권유가 떠 있는 동안 도착 요약 창은 기다린다(창은 화면 위에 따로 뜨므로 순서를 여기서 정한다).
+    // 도착 창은 주행 잠금 화면보다 위에 그려지므로, 닫지 않고 출발하면 주행 중에도 눌렸다(2026-11-09 보안 점검).
+    // 그래서 주행이 시작되면 닫고, 닫히기 전 한 프레임도 그리지 않는다.
+    LaunchedEffect(driveState) { if (driveState == DriveState.DRIVING) arrival = null }
+    ArrivalDialog(DriveGuard.whenParked(if (showRest) null else arrival, driveState)) {
         arrival = null
         nav.goTo(RailItem.PARK.route)
+    }
+    // 주행이 다시 시작되면 휴식 권유 화면은 닫는다(운전 중 큰 화면 금지).
+    LaunchedEffect(driveState) { if (driveState == DriveState.DRIVING) showRest = false }
+    AnimatedVisibility(visible = showRest && myCharacter != null, enter = fadeIn(), exit = fadeOut(tween(400))) {
+        myCharacter?.let { com.drivepark.app.ui.rest.RestScreen(it) { showRest = false } }
     }
 }
 

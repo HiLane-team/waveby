@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -90,14 +91,15 @@ private fun Sheet(summary: ArrivalSummary, onDismiss: () -> Unit) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End).height(56.dp)) { Text("공원 보기") }
+        Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End).height(64.dp).widthIn(min = 200.dp)) { Text("공원 보기", style = MaterialTheme.typography.titleMedium) }
     }
 }
 
 @Composable
 private fun FriendChip(c: Character) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        CharacterAvatar(c.parts, Modifier.size(80.dp))
+        // 도착은 앱에서 가장 반가운 순간이라 크게 보여 준다(그림은 정수배로만 커져 모양이 그대로다).
+        CharacterAvatar(c, Modifier.size(112.dp))
         Text(c.nickname, style = MaterialTheme.typography.labelMedium, color = Pleos.TextSecondary)
     }
 }

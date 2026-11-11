@@ -70,17 +70,32 @@ fun DevMenuScreen(container: AppContainer, onBack: () -> Unit) {
             OutlinedButton(onClick = { container.monitor.setOverride(null) }) { Text("덮어쓰기 해제") }
         }
 
+        // 졸음 휴식 권유 시연: 주행(기어 덮어쓰기 D) 중에 누르면 바로 "쉴 때"(팝업·잠금 화면이 조는 모습).
+        // 그 뒤 "주차"를 누르면 휴식 권유 화면이 뜬다.
+        Text("휴식 권유 시연", style = MaterialTheme.typography.titleLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = {
+                container.monitor.setOverride(DriveState.DRIVING)
+                last = "주행으로 덮어썼어요. 잠시 뒤 '쉴 때로 건너뛰기'를 누르세요"
+            }) { Text("주행 시작(덮어쓰기)") }
+            OutlinedButton(onClick = {
+                container.restReminder.markDueNow()
+                last = "쉴 때로 건너뛰었어요(주행 중일 때만). '주차'를 누르면 권유 화면"
+            }) { Text("쉴 때로 건너뛰기") }
+            OutlinedButton(onClick = { container.monitor.setOverride(DriveState.PARKED) }) { Text("주차") }
+        }
+
         OutlinedButton(onClick = { container.greeter.speak("안녕하세요, 웨이브바이예요") }) { Text("음성 테스트") }
 
-        // "주차 10분 뒤 공원 띄우기"를 10분 기다리지 않고 확인: 내비를 띄우고 5초 뒤 공원을 앞으로 부른다.
+        // "주차 10분 뒤 공원 안내"를 10분 기다리지 않고 확인: 내비를 띄우고 5초 뒤 내비 위에 안내 박스를 띄운다.
         OutlinedButton(onClick = {
             com.drivepark.app.drive.ScreenSwitcher.openNavi(context)
             scope.launch {
                 kotlinx.coroutines.delay(5_000)
-                com.drivepark.app.drive.ScreenSwitcher.openPark(context.applicationContext)
+                container.showIdleParkBanner()
             }
-            last = "내비를 띄웠어요. 5초 뒤 공원이 다시 떠야 해요"
-        }) { Text("공원 띄우기 시험 (5초)") }
+            last = "내비를 띄웠어요. 5초 뒤 내비 위에 공원 안내가 떠야 해요(15초 뒤 저절로 사라짐)"
+        }) { Text("공원 안내 시험 (5초)") }
 
         HorizontalDivider()
 

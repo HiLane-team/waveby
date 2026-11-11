@@ -28,4 +28,9 @@ class CharacterTest {
     fun create_acceptsMaxLengths() {
         assertNotNull(Character.create(parts, "가".repeat(10), "가".repeat(30)))
     }
+
+    @Test
+    fun parts_defaultEyeIsGreen() {
+        assertEquals(EyeColor.GREEN, CharacterParts(BodyColor.PURPLE, Face.SMILE, Hat.NONE, Accessory.NONE).eye)
+    }
 }

@@ -1,5 +1,6 @@
 package com.drivepark.app.ui.onboarding
 
+import com.drivepark.app.ui.character.rememberIdleFrame
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -54,7 +56,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.clickable
 import com.drivepark.app.AppContainer
+import com.drivepark.app.domain.Accessory
+import com.drivepark.app.domain.BodyColor
+import com.drivepark.app.domain.CharacterKind
+import com.drivepark.app.domain.CharacterParts
+import com.drivepark.app.domain.EyeColor
+import com.drivepark.app.domain.Face
+import com.drivepark.app.ui.character.defaultEye
+import com.drivepark.app.domain.Hat
+import com.drivepark.app.ui.character.PERSON_SHAPE
+import com.drivepark.app.ui.pixel.Shapes
 import com.drivepark.app.domain.AppSettings
 import com.drivepark.app.domain.StartupMode
 import com.drivepark.app.ui.settings.SegmentedPicker
@@ -92,17 +105,19 @@ fun OnboardingScreen(
             when (s) {
                 0 -> Welcome(characterVm)
                 1 -> Permissions(container)
-                2 -> CreateCharacterScreen(characterVm, title = "내 캐릭터를 만들어요", saveLabel = "저장하고 다음") { vm.next() }
-                3 -> Preferences(container)
+                OnboardingViewModel.STEP_WHO -> WhoStep { kind -> characterVm.setKind(kind); vm.next() }
+                OnboardingViewModel.STEP_CHARACTER ->
+                    CreateCharacterScreen(characterVm, title = "캐릭터를 만들어요", saveLabel = "저장하고 다음") { vm.next() }
                 else -> Done(characterVm, onFinished)
             }
         }
-        // 캐릭터 단계(2)는 저장 버튼으로만 넘어가고, 완료 단계(4)는 자체 버튼을 쓴다.
+        // "누구" 단계는 카드를 눌러 넘어가고, 캐릭터 단계는 저장 버튼으로만, 완료 단계는 자체 버튼을 쓴다.
         Row(Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (step in 1..3) TextButton(onClick = vm::back) { Text("이전") }
+            if (step in 1 until OnboardingViewModel.LAST_STEP) TextButton(onClick = vm::back, modifier = Modifier.height(64.dp).widthIn(min = 120.dp)) { Text("이전", style = MaterialTheme.typography.titleMedium) }
             Spacer(Modifier.weight(1f))
-            if (step != 2 && step != OnboardingViewModel.LAST_STEP) {
-                Button(onClick = vm::next, modifier = Modifier.height(56.dp).width(200.dp)) { Text("다음") }
+            if (step != OnboardingViewModel.STEP_WHO && step != OnboardingViewModel.STEP_CHARACTER && step != OnboardingViewModel.LAST_STEP) {
+                // 차량 터치 규칙: 높이 64dp 이상.
+                Button(onClick = vm::next, modifier = Modifier.height(64.dp).width(220.dp)) { Text("다음", style = MaterialTheme.typography.titleMedium) }
             }
         }
     }
@@ -120,9 +135,9 @@ private fun StepDots(step: Int, modifier: Modifier) {
 
 @Composable
 private fun Welcome(characterVm: CreateCharacterViewModel) {
-    val parts = characterVm.state.collectAsState().value.parts
-    var frame by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) { while (true) { delay(600); frame++ } }
+    // 인트로 늑대는 늑대 기본 눈(금색)으로 보여 준다(사용자 캐릭터 상태와 무관, 그림은 그대로).
+    val parts = CharacterParts(BodyColor.PURPLE, Face.SMILE, Hat.NONE, Accessory.NONE, defaultEye("wolf") ?: EyeColor.GREEN)
+    val frame = rememberIdleFrame()
     Column(Modifier.fillMaxSize().padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         com.drivepark.app.ui.character.CharacterGlow(Modifier.size(300.dp)) {
             CharacterAvatar(parts, Modifier.size(220.dp), frame = frame)
@@ -138,13 +153,53 @@ private fun Welcome(characterVm: CreateCharacterViewModel) {
     }
 }
 
+/** 누구의 캐릭터인가요? 카드를 누르면 고른 값으로 다음 단계(캐릭터 만들기)로 넘어간다. */
+@Composable
+private fun WhoStep(onPick: (CharacterKind) -> Unit) {
+    val frame = rememberIdleFrame()
+    val compact = com.drivepark.app.ui.theme.LocalCompact.current
+    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("누구의 캐릭터인가요?", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(8.dp))
+        Text("나중에 설정에서 바꿀 수 있어요", color = Pleos.TextSecondary, style = MaterialTheme.typography.bodyLarge)
+        Spacer(Modifier.height(24.dp))
+        val cards = @Composable {
+            WhoCard("나", PERSON_SHAPE, frame, Modifier.weight(1f, fill = false)) { onPick(CharacterKind.PERSON) }
+            WhoCard("우리 집 반려동물", Shapes.animals.firstOrNull()?.id ?: "wolf", frame, Modifier.weight(1f, fill = false)) { onPick(CharacterKind.PET) }
+        }
+        if (compact) Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { cards() }
+        else Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) { cards() }
+    }
+}
+
+@Composable
+private fun WhoCard(title: String, shape: String, frame: Int, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .width(280.dp)
+            .background(Pleos.Surface, RoundedCornerShape(Pleos.CardRadius))
+            .clickable(onClick = onClick)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        CharacterAvatar(
+            CharacterParts(BodyColor.PURPLE, Face.SMILE, Hat.NONE, Accessory.NONE, defaultEye(shape) ?: EyeColor.GREEN),
+            Modifier.size(180.dp), frame = frame, shape = shape,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(title, style = MaterialTheme.typography.titleLarge)
+    }
+}
+
 @Composable
 private fun Permissions(container: AppContainer) {
     val context = LocalContext.current
     var location by remember { mutableStateOf(container.location.hasPermission()) }
     var notifications by remember { mutableStateOf(Build.VERSION.SDK_INT < 33) }
     var overlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-    var overlayUnsupported by remember { mutableStateOf(false) }
+    // Pleos 차량에는 '다른 앱 위에 표시' 설정 화면이 없을 수 있다 → 처음부터 알고 '허용' 버튼 대신 대안을 안내한다.
+    val overlayIntent = remember { Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")) }
+    val overlayUnsupported = remember { overlayIntent.resolveActivity(context.packageManager) == null }
     val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { location = it }
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifications = it }
 
@@ -152,22 +207,21 @@ private fun Permissions(container: AppContainer) {
         Text("필요한 권한을 허용해 주세요", style = MaterialTheme.typography.headlineMedium)
         Text("나중에 설정에서도 바꿀 수 있어요", color = Pleos.TextSecondary, style = MaterialTheme.typography.bodyLarge)
         PermissionRow("위치", "지역 캐릭터를 모을 때 써요", location) { locationLauncher.launch(PleosLocationProvider.PERMISSION) }
-        PermissionRow("알림", "주차하면 놀러온 친구를 알려줘요", notifications) {
+        PermissionRow("알림", "주차하면 놀러 온 친구를 알려줘요", notifications) {
             if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         PermissionRow(
             "주행 팝업",
-            if (overlayUnsupported) "이 차량에서는 아직 지원하지 않아요" else "주행 중 내비 위에 '친구를 찾는 중…'을 띄워요",
+            if (overlayUnsupported && !overlay) "이 차량에서는 아직 켤 수 없어요. 3분할 칸에 Waveby를 두면 주행 중에도 내 캐릭터가 보여요"
+            else "주행 중 내비 위에 '친구를 찾는 중…'을 띄워요",
             overlay,
-        ) {
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
-            if (intent.resolveActivity(context.packageManager) != null) context.startActivity(intent) else overlayUnsupported = true
-        }
+            allowable = !overlayUnsupported,
+        ) { context.startActivity(overlayIntent) }
     }
 }
 
 @Composable
-private fun PermissionRow(title: String, desc: String, granted: Boolean, onAllow: () -> Unit) {
+private fun PermissionRow(title: String, desc: String, granted: Boolean, allowable: Boolean = true, onAllow: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(Pleos.Surface, RoundedCornerShape(Pleos.CardRadius)).padding(horizontal = 28.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -177,59 +231,15 @@ private fun PermissionRow(title: String, desc: String, granted: Boolean, onAllow
             Text(desc, color = Pleos.TextSecondary, style = MaterialTheme.typography.bodyMedium)
         }
         if (granted) Text("✓ 허용됨", color = Pleos.Accent, style = MaterialTheme.typography.titleMedium)
-        else OutlinedButton(onClick = onAllow) { Text("허용") }
-    }
-}
-
-@Composable
-private fun Preferences(container: AppContainer) {
-    val prefs by container.settings.observe().collectAsState(initial = AppSettings())
-    val scope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize().padding(horizontal = 80.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("도착 인사는 어떻게 할까요?", style = MaterialTheme.typography.headlineMedium)
-        PrefRow("인사 음성", "도착 인사를 소리 내어 읽어줘요", prefs.greetingVoice) { v ->
-            scope.launch { container.settings.update { it.copy(greetingVoice = v) } }
-        }
-        PrefRow("글레오 브리핑", "글레오가 도착 인사를 만들어줘요", prefs.gleoBriefing) { v ->
-            scope.launch { container.settings.update { it.copy(gleoBriefing = v) } }
-        }
-        Text("시동을 걸면", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp))
-        Row(
-            Modifier.fillMaxWidth().background(Pleos.Surface, RoundedCornerShape(Pleos.CardRadius)).padding(horizontal = 28.dp, vertical = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("인사 다음 화면", style = MaterialTheme.typography.titleMedium)
-                Text("내비를 고르면 인사 후 바로 길 안내 화면이 떠요", color = Pleos.TextSecondary, style = MaterialTheme.typography.bodyMedium)
-            }
-            SegmentedPicker(StartupMode.entries, prefs.startupMode, StartupMode::label) { m ->
-                scope.launch { container.settings.update { it.copy(startupMode = m) } }
-            }
-        }
-        PrefRow("주차 10분 뒤 공원 띄우기", "P에 둔 채 10분이 지나면 공원 화면을 앞으로 띄워요", prefs.showParkWhenIdle) { v ->
-            scope.launch { container.settings.update { it.copy(showParkWhenIdle = v) } }
-        }
-    }
-}
-
-@Composable
-private fun PrefRow(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(Pleos.Surface, RoundedCornerShape(Pleos.CardRadius)).padding(horizontal = 28.dp, vertical = 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(desc, color = Pleos.TextSecondary, style = MaterialTheme.typography.bodyMedium)
-        }
-        Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Pleos.Accent, checkedThumbColor = Color.White))
+        else if (allowable) OutlinedButton(onClick = onAllow, modifier = Modifier.height(64.dp).widthIn(min = 120.dp)) { Text("허용", style = MaterialTheme.typography.titleMedium) }
     }
 }
 
 /** 완료: 내 캐릭터가 왼쪽에서 가운데로 걸어 들어온다. */
 @Composable
 private fun Done(characterVm: CreateCharacterViewModel, onFinished: () -> Unit) {
-    val parts = characterVm.state.collectAsState().value.parts
+    val me = characterVm.state.collectAsState().value
+    val parts = me.parts
     val progress = remember { Animatable(0f) }
     var frame by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { progress.animateTo(1f, tween(2400, easing = LinearEasing)) }
@@ -239,7 +249,10 @@ private fun Done(characterVm: CreateCharacterViewModel, onFinished: () -> Unit) 
         val startX = 0.dp
         val endX = (maxWidth - avatar) / 2
         Box(Modifier.offset(x = startX + (endX - startX) * progress.value, y = maxHeight * 0.18f)) {
-            CharacterAvatar(parts, Modifier.size(avatar), pose = if (progress.value < 1f) Pose.WALK else Pose.IDLE, frame = frame, mirrored = true)
+            CharacterAvatar(
+                parts, Modifier.size(avatar), pose = if (progress.value < 1f) Pose.WALK else Pose.IDLE, frame = frame, mirrored = true,
+                shape = me.shape, look = me.look, kind = me.kind, drawing = me.drawing,
+            )
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("준비 끝! 이제 드라이브를 떠나 볼까요?", style = MaterialTheme.typography.headlineMedium)

@@ -13,7 +13,7 @@ class BriefingPromptTest {
         val p = BriefingPrompt.build(summary)
         assertTrue(p.contains("3"))
         assertTrue(p.contains("드라이브왕"))
-        assertTrue(p.contains("횡성 한우"))
+        assertTrue(p.contains("한우 음메롱"))
     }
 
     @Test

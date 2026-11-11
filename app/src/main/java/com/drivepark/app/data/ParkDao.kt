@@ -43,6 +43,9 @@ abstract class ParkDao {
     @Query("SELECT * FROM friend ORDER BY id DESC")
     abstract fun observeFriends(): Flow<List<FriendEntity>>
 
+    @Query("UPDATE friend SET sticker = :sticker WHERE id = :id")
+    abstract suspend fun setSticker(id: Long, sticker: String?)
+
     @Query("UPDATE friend SET isNew = 0 WHERE isNew = 1")
     abstract suspend fun markAllSeen()
 

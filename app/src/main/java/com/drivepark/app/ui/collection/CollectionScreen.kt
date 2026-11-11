@@ -60,7 +60,7 @@ fun CollectionScreen(vm: CollectionViewModel) {
             items(state.items, key = { it.first.id }) { (region, collected) ->
                 Card(Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        MascotAvatar(region.id, Modifier.size(88.dp), silhouette = !collected)
+                        MascotAvatar(region.id, Modifier.size(88.dp), silhouette = !collected, sameDot = false)
                         Spacer(Modifier.width(16.dp))
                         Column {
                             Text(if (collected) region.mascotName else "???", style = MaterialTheme.typography.titleLarge)

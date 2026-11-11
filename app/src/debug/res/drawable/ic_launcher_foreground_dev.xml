@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 개발용 아이콘 전경 = 제출용 전경 + "dev-" 표시. 제출용 그림이 바뀌면 자동으로 따라간다. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_foreground" />
+    <item android:drawable="@drawable/ic_dev_badge" />
+</layer-list>

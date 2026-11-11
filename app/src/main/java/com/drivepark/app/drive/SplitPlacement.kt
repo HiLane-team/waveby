@@ -24,6 +24,8 @@ object SplitPlacement {
 
     /** 이 활동의 창이 지금 어느 칸에 있는지. */
     fun paneOf(activity: android.app.Activity): SplitPane {
+        // 창 크기 API는 30부터 있다(Pleos는 34). 그보다 낮으면 분할이 아닌 것으로 본다.
+        if (android.os.Build.VERSION.SDK_INT < 30) return SplitPane.NONE
         val wm = activity.windowManager
         val b = wm.currentWindowMetrics.bounds
         return paneOf(b.left, b.right, wm.maximumWindowMetrics.bounds.width())

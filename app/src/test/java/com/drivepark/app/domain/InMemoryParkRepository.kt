@@ -28,6 +28,9 @@ class InMemoryParkRepository : ParkRepository {
 
     override fun observeFriends(): Flow<List<Friend>> = friends
     override suspend fun markAllSeen() { friends.value = friends.value.map { it.copy(isNew = false) } }
+    override suspend fun setSticker(friendId: Long, sticker: Sticker?) {
+        friends.value = friends.value.map { if (it.id == friendId) it.copy(sticker = sticker) else it }
+    }
 
     override suspend fun collectRegion(regionId: String): Boolean {
         if (regionId in regions.value) return false

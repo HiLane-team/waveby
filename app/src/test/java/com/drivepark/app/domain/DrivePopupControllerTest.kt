@@ -11,7 +11,7 @@ import org.junit.Test
 
 class RecordingPopup : PopupWindowPort {
     val events = mutableListOf<String>()
-    override fun show(text: String) { events += "show:$text" }
+    override fun show(text: String, sleepy: Boolean) { events += if (sleepy) "show:$text:sleepy" else "show:$text" }
     override fun hide() { events += "hide" }
 }
 
@@ -20,9 +20,10 @@ class DrivePopupControllerTest {
     private val state = MutableStateFlow(DriveState.PARKED)
     private val settings = MutableStateFlow(AppSettings())
     private val popup = RecordingPopup()
+    private val rest = MutableStateFlow(false)
 
     private fun TestScope.start(canDraw: Boolean = true) {
-        DrivePopupController(state, settings, popup) { canDraw }.start(backgroundScope)
+        DrivePopupController(state, settings, popup, restDue = rest) { canDraw }.start(backgroundScope)
         runCurrent()
     }
 
@@ -62,5 +63,17 @@ class DrivePopupControllerTest {
         state.value = DriveState.DRIVING; runCurrent()
         settings.value = AppSettings(pauseVisits = true); runCurrent()
         assertEquals("show:● 사색 중…", popup.events.last())
+    }
+
+    @Test
+    fun restDue_showsSleepyRestText_evenWhilePaused() = runTest {
+        start()
+        state.value = DriveState.DRIVING; runCurrent()
+        rest.value = true; runCurrent()
+        assertEquals("show:● 쉬어 갈 때가 됐어요:sleepy", popup.events.last())
+        settings.value = AppSettings(pauseVisits = true); runCurrent()
+        assertEquals("쉴 때 문구가 사색 문구보다 먼저", "show:● 쉬어 갈 때가 됐어요:sleepy", popup.events.last())
+        state.value = DriveState.PARKED; runCurrent()
+        assertEquals("hide", popup.events.last())
     }
 }

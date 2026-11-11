@@ -1,5 +1,7 @@
 package com.drivepark.app.ui.pixel
 
+import com.drivepark.app.domain.GridSize
+
 /** 합성된 도트 그림. argb는 행 우선(y * width + x). 0은 투명. */
 class PixelImage(val width: Int, val height: Int, val argb: IntArray)
 
@@ -16,16 +18,16 @@ class PixelSprite(val rows: List<String>) {
     val height: Int = rows.size
 
     init {
-        require((width to height) in ALLOWED) { "스프라이트 크기는 19×24(늑대) 또는 32×32: ${width}×$height" }
+        require((width to height) in ALLOWED) { "스프라이트 크기는 네 그림판(19×24·25×24·29×20·21×28) 또는 32×32: ${width}×$height" }
         rows.forEachIndexed { i, r -> require(r.length == width) { "${i}번째 줄 길이 ${r.length}" } }
     }
 
     operator fun get(x: Int, y: Int): Char = rows[y][x]
 
     companion object {
-        /** 늑대 그림판 19×24(17×23 격자 + 동작 여백), 지역 캐릭터 32×32. */
-        val ALLOWED = setOf(WolfSprites.CANVAS_W to WolfSprites.CANVAS_H, 32 to 32)
-        val SLOTS: Set<Char> = setOf('.', 'o', 'D', 'L', 'M', 'E', 'H', 'P', '1', '2', '3', '4', 'R', 'B', 'S')
+        /** 네 크기의 동작 그림판(그림 + 좌우 1칸·위 1칸 여백)과 지역 캐릭터 옛 그림 32×32. */
+        val ALLOWED = GridSize.entries.map { Poser.canvasW(it) to Poser.canvasH(it) }.toSet() + (32 to 32)
+        val SLOTS: Set<Char> = setOf('.', 'o', 'D', 'L', 'M', 'E', 'H', 'P', '1', '2', '3', '4', 'R', 'B', 'S', 'h', 'n', 'a', 'b', 'c', 'd')
 
         /** from~to 행을 dy칸 아래로 민다(빈 줄은 투명). 숨쉬기 프레임에 쓴다. */
         fun shiftRows(rows: List<String>, from: Int, to: Int, dy: Int): List<String> {

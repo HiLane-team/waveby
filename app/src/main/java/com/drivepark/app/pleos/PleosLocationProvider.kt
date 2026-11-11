@@ -35,7 +35,8 @@ class PleosLocationProvider(context: Context) : LocationProvider {
                 val listener = object : FusedLocationListener {
                     override fun onChanged(data: LocationData?) {
                         if (data == null) { if (cont.isActive) cont.resume(null); return }
-                        Log.d(TAG, "location=${data.latitude},${data.longitude}")
+                        // 원칙 2: 좌표는 로그에도 남기지 않는다(버그 리포트로 밖에 나갈 수 있음, 2026-11-09 보안 점검).
+                        Log.d(TAG, "location received")
                         if (cont.isActive) cont.resume(LatLng(data.latitude, data.longitude))
                     }
 

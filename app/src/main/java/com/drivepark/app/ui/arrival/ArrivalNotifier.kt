@@ -15,13 +15,13 @@ import com.drivepark.app.R
 import com.drivepark.app.domain.ArrivalSummary
 import com.drivepark.app.domain.arrivalMessage
 
-/** 주차 시 시스템 알림. 채널 "놀러온 친구", 탭하면 공원을 연다. */
+/** 주차 시 시스템 알림. 채널 "놀러 온 친구", 탭하면 공원을 연다. */
 class ArrivalNotifier(private val context: Context) {
     private val manager = context.getSystemService(NotificationManager::class.java)
 
     init {
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "놀러온 친구", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_ID, "놀러 온 친구", NotificationManager.IMPORTANCE_DEFAULT),
         )
     }
 

@@ -20,9 +20,10 @@ import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.drivepark.app.domain.CharacterParts
+import com.drivepark.app.domain.Character
 import com.drivepark.app.domain.PopupWindowPort
 import com.drivepark.app.ui.pixel.CharacterRenderer
+import com.drivepark.app.ui.pixel.CoffeeCup
 import com.drivepark.app.ui.pixel.Pose
 
 /** 팝업 한 벌의 색. 순정 내비 지도가 테마를 따라가므로 팝업도 같은 톤으로 맞춘다. */
@@ -43,7 +44,7 @@ data class PopupColors(val background: Int, val border: Int, val text: Int) {
  */
 class OverlayPopupWindow(
     context: Context,
-    private val myParts: () -> CharacterParts?,
+    private val myCharacter: () -> Character?,
     private val isDark: () -> Boolean,
 ) : PopupWindowPort {
     private val appContext = context.applicationContext
@@ -56,15 +57,28 @@ class OverlayPopupWindow(
 
     fun canDraw(): Boolean = Settings.canDrawOverlays(appContext)
 
-    override fun show(text: String) {
+    /** 지금 팝업이 조는 모습인지(바뀔 때만 그림을 갈아 끼운다). */
+    private var shownSleepy = false
+
+    override fun show(text: String, sleepy: Boolean) {
         main.post {
             runCatching {
                 val current = root
                 if (current != null) {
                     label?.text = text.removePrefix("● ")
+                    if (sleepy != shownSleepy) {
+                        // 걷기 ↔ 조는 모습: 왼쪽 그림만 바꾼다(팝업은 그대로).
+                        walker?.let(main::removeCallbacks)
+                        walker = null
+                        pulse?.cancel()
+                        current.removeViewAt(0)
+                        current.addView(icon(sleepy), 0)
+                        shownSleepy = sleepy
+                    }
                     return@post
                 }
-                val view = buildView(text.removePrefix("● "))
+                shownSleepy = sleepy
+                val view = buildView(text.removePrefix("● "), sleepy)
                 wm.addView(view, layoutParams())
                 root = view
                 view.translationY = -dp(80f)
@@ -86,9 +100,46 @@ class OverlayPopupWindow(
         }
     }
 
-    private fun buildView(text: String): LinearLayout {
+    /** 왼쪽 그림: 보통은 걷는 내 캐릭터, 쉴 때는 커피를 들고 조는 정지 그림(주행 중이라 움직이지 않는다). */
+    private fun icon(sleepy: Boolean): View {
+        val me = myCharacter() ?: return blinkingDot()
+        return if (sleepy) sleepyCharacter(me) else walkingCharacter(me)
+    }
+
+    private fun sleepyCharacter(me: Character): View {
+        val size = dp(60f).toInt()
+        val img = CharacterRenderer.render(me.parts, Pose.DOZE, 0, eyesClosed = true, shape = me.shape, look = me.look, kind = me.kind, drawing = me.drawing)
+        val character = ImageView(appContext).apply {
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageDrawable(BitmapDrawable(appContext.resources, scaled(img, flip = true)).apply { isFilterBitmap = false })
+        }
+        val cupSize = dp(26f).toInt()
+        val cup = ImageView(appContext).apply {
+            layoutParams = LinearLayout.LayoutParams(cupSize, cupSize).apply { gravity = Gravity.BOTTOM; bottomMargin = dp(8f).toInt() }
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageDrawable(BitmapDrawable(appContext.resources, scaled(CoffeeCup.image, flip = false)).apply { isFilterBitmap = false })
+        }
+        return LinearLayout(appContext).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, size)
+            addView(character)
+            addView(cup)
+        }
+    }
+
+    private fun scaled(img: com.drivepark.app.ui.pixel.PixelImage, flip: Boolean): Bitmap {
+        val raw = Bitmap.createBitmap(img.argb, img.width, img.height, Bitmap.Config.ARGB_8888)
+        val k = 4f
+        val m = Matrix().apply { setScale(if (flip) -k else k, k) }
+        return Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, m, false)
+    }
+
+    private fun buildView(text: String, sleepy: Boolean): LinearLayout {
         val colors = if (isDark()) PopupColors.DARK else PopupColors.LIGHT
-        val icon = myParts()?.let(::walkingCharacter) ?: blinkingDot()
+        // 주행이 시작될 때마다 지금 내 캐릭터를 읽어 그린다(캐릭터를 바꾸면 다음 주행부터 바뀐 모습).
+        val icon = icon(sleepy)
         val textView = TextView(appContext).apply {
             this.text = text
             setTextColor(colors.text)
@@ -110,9 +161,10 @@ class OverlayPopupWindow(
         }
     }
 
-    /** 내 캐릭터 걷기 4장을 0.3초마다 넘긴다(공원에서 걷는 속도와 같음). 글자 쪽(오른쪽)을 보고 걷게 뒤집는다. */
-    private fun walkingCharacter(parts: CharacterParts): View {
-        val frames = (0..3).map { f -> pixelBitmap(parts, f) }
+    /** 내 캐릭터 걷기 4장을 공원과 같은 간격(WALK_FRAME_MS)으로 넘긴다. 글자 쪽(오른쪽)을 보고 걷게 뒤집는다. */
+    private fun walkingCharacter(me: Character): View {
+        // 4장을 미리 만들어 두고 돌려 쓴다(0.3초마다 새 객체를 만들지 않게).
+        val frames = (0..3).map { f -> BitmapDrawable(appContext.resources, pixelBitmap(me, f)).apply { isFilterBitmap = false } }
         val size = dp(60f).toInt()
         val image = ImageView(appContext).apply {
             layoutParams = LinearLayout.LayoutParams(size, size)
@@ -121,9 +173,9 @@ class OverlayPopupWindow(
         var i = 0
         val tick = object : Runnable {
             override fun run() {
-                image.setImageDrawable(BitmapDrawable(appContext.resources, frames[i % frames.size]).apply { isFilterBitmap = false })
+                image.setImageDrawable(frames[i % frames.size])
                 i++
-                main.postDelayed(this, 300)
+                main.postDelayed(this, com.drivepark.app.ui.park.WALK_FRAME_MS.toLong())
             }
         }
         walker = tick
@@ -132,8 +184,8 @@ class OverlayPopupWindow(
     }
 
     /** 도트를 정수배로 키워(보간 없이) 각진 픽셀을 유지한다. */
-    private fun pixelBitmap(parts: CharacterParts, frame: Int): Bitmap {
-        val img = CharacterRenderer.render(parts, Pose.WALK, frame)
+    private fun pixelBitmap(me: Character, frame: Int): Bitmap {
+        val img = CharacterRenderer.render(me.parts, Pose.WALK, frame, shape = me.shape, look = me.look, kind = me.kind, drawing = me.drawing)
         val raw = Bitmap.createBitmap(img.argb, img.width, img.height, Bitmap.Config.ARGB_8888)
         val k = 4f
         val m = Matrix().apply { setScale(-k, k) } // 좌우 뒤집기 + 4배
@@ -166,7 +218,8 @@ class OverlayPopupWindow(
     ).apply {
         gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
         // 차량 상단 시스템 바(TopCarSystemBar, 90px)가 오버레이보다 위에 그려지므로 그 아래에 배치되게 한다.
-        fitInsetsTypes = android.view.WindowInsets.Type.statusBars()
+        // fitInsetsTypes는 API 30부터 있다(Pleos는 34). 그보다 낮으면 기본 배치를 쓴다.
+        if (android.os.Build.VERSION.SDK_INT >= 30) fitInsetsTypes = android.view.WindowInsets.Type.statusBars()
         y = dp(24f).toInt()
         // Pleos 화면은 왼쪽 1/3이 차량 패널이고, 내비의 회전 안내 카드가 지도 영역 왼쪽 위에 있다.
         // 안내를 가리지 않도록 지도 영역(오른쪽 2/3)의 가운데로 옮긴다.

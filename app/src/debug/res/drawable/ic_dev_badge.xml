@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  개발용 빌드("Waveby (개발)") 아이콘에만 얹는 표시: 오른쪽 위 작은 주황 판에 도트 글자 "dev-".
+  108×108 적응형 아이콘 좌표. 기기마다 가장자리가 잘려도 보이도록 가운데 지름 66 원 안에 둔다.
+  아래 아이콘(ic_launcher_foreground)이 바뀌어도 이 표시는 그 위에 그대로 얹힌다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 판: 17×7칸(한 칸 1.8) -->
+    <path
+        android:fillColor="#FFFF7A1A"
+        android:pathData="M48,30h30.6v12.6h-30.6z" />
+    <!-- 글자 d e v - (3×5 도트) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M53.4,31.8h1.8v1.8h-1.8zM53.4,33.6h1.8v1.8h-1.8zM49.8,35.4h1.8v1.8h-1.8zM51.6,35.4h1.8v1.8h-1.8zM53.4,35.4h1.8v1.8h-1.8zM49.8,37.2h1.8v1.8h-1.8zM53.4,37.2h1.8v1.8h-1.8zM49.8,39.0h1.8v1.8h-1.8zM51.6,39.0h1.8v1.8h-1.8zM53.4,39.0h1.8v1.8h-1.8zM57.0,31.8h1.8v1.8h-1.8zM58.8,31.8h1.8v1.8h-1.8zM60.6,31.8h1.8v1.8h-1.8zM57.0,33.6h1.8v1.8h-1.8zM60.6,33.6h1.8v1.8h-1.8zM57.0,35.4h1.8v1.8h-1.8zM58.8,35.4h1.8v1.8h-1.8zM60.6,35.4h1.8v1.8h-1.8zM57.0,37.2h1.8v1.8h-1.8zM57.0,39.0h1.8v1.8h-1.8zM58.8,39.0h1.8v1.8h-1.8zM60.6,39.0h1.8v1.8h-1.8zM64.2,31.8h1.8v1.8h-1.8zM67.8,31.8h1.8v1.8h-1.8zM64.2,33.6h1.8v1.8h-1.8zM67.8,33.6h1.8v1.8h-1.8zM64.2,35.4h1.8v1.8h-1.8zM67.8,35.4h1.8v1.8h-1.8zM64.2,37.2h1.8v1.8h-1.8zM67.8,37.2h1.8v1.8h-1.8zM66.0,39.0h1.8v1.8h-1.8zM71.4,35.4h1.8v1.8h-1.8zM73.2,35.4h1.8v1.8h-1.8zM75.0,35.4h1.8v1.8h-1.8z" />
+</vector>

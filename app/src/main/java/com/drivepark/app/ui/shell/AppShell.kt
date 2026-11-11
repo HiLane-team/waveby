@@ -15,6 +15,9 @@ fun AppShell(
     newFriends: Int,
     driving: Boolean,
     onDemoPark: (() -> Unit)?,
+    /** 주행 중 쉴 때(잠금 화면이 조는 모습). */
+    rest: Boolean = false,
+    me: com.drivepark.app.domain.Character? = null,
     onSelect: (RailItem) -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -23,6 +26,6 @@ fun AppShell(
             if (showRail) NavRail(selected, newFriends, onSelect)
             Box(Modifier.weight(1f).fillMaxHeight()) { content() }
         }
-        DriveLockOverlay(driving, onDemoPark)
+        DriveLockOverlay(driving, onDemoPark, rest, me)
     }
 }
